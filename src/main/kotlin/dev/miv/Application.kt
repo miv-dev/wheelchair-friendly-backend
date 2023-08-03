@@ -52,7 +52,10 @@ fun Application.authenticationPlugin(routing: Route.(tokenService: TokenService)
             verifier {
                 tokenService.makeJWTVerifier()
             }
-
+            challenge { defaultScheme, realm ->
+                println(defaultScheme)
+                println(realm)
+            }
             validate { token ->
                 if (token.payload.expiresAt.time > System.currentTimeMillis())
                     JWTPrincipal(token.payload)

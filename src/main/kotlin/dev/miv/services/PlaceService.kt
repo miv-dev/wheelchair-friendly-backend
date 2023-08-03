@@ -17,7 +17,7 @@ class PlaceService {
 
     init {
         transaction {
-            SchemaUtils.create(PlaceTable, CoordinatesTable, TagTable, PlaceTagTable, UserTable)
+            SchemaUtils.create(PlaceTable, CoordinatesTable, TagTable, PlaceTagTable, UserTable, TokensTable)
         }
     }
 

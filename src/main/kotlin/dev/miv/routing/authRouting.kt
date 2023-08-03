@@ -2,7 +2,6 @@ package dev.miv.routing
 
 import dev.miv.models.LoginRequest
 import dev.miv.models.RefreshToken
-import dev.miv.models.TokenPair
 import dev.miv.models.User
 import dev.miv.services.TokenService
 import dev.miv.services.UserService
@@ -13,14 +12,14 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 
 @kotlinx.serialization.Serializable
-data class LoginResponse(
-    val tokenPair: TokenPair,
-    val user: User
+data class SuccessResponse<T>(
+    val success: Boolean,
+    val data: T
 )
 
 @kotlinx.serialization.Serializable
 data class FailResponse(
-    val result: String,
+    val success: Boolean,
     val error: String
 )
 
@@ -28,39 +27,54 @@ fun Route.authRouting(userService: UserService, tokenService: TokenService) {
     route("/auth") {
         post("/refresh") {
             val oldRT = call.receive<RefreshToken>().refreshToken // old refresh token
-            val token = tokenService.find(oldRT)
 
-            val currentTime = System.currentTimeMillis()
-
-            if (token != null && token.expiresAt > currentTime) {
-                val tokenPair = tokenService.generateTokenPair(token.uuid, true)
-
-                tokenService.updateByRefreshToken(
-                    oldRT,
-                    tokenPair.refreshToken,
-                    currentTime
-                )
-                call.respond(tokenPair)
-            } else {
+            runCatching {
+                tokenService.updateByRefreshToken(oldRT)
+            }.onSuccess {
                 call.respond(
-                    HttpStatusCode.BadRequest,
-                    hashMapOf("description" to "invalid token"),
+                    SuccessResponse(
+                        success = true,
+                        data = it
+                    )
+                )
+            }.onFailure {
+                call.respond(
+                    HttpStatusCode.Unauthorized,
+                    FailResponse(
+                        success = false,
+                        error = "invalid token"
+                    )
                 )
             }
+
+
         }
 
         post("/login") {
             val authUser = call.receive<LoginRequest>()
+            runCatching {
+                userService.login(authUser.email, authUser.password)
+            }
+                .onSuccess { user ->
+                    val tokenPair = tokenService.generateTokenPair(user.uuid!!)
+                    call.respond(
+                        SuccessResponse(
+                            true,
+                            tokenPair
+                        )
+                    )
+                }
+                .onFailure {
+                    call.respond(
+                        HttpStatusCode.BadRequest,
+                        FailResponse(
+                            false,
+                            it.localizedMessage
+                        )
+                    )
+                }
 
-            val user = userService.userByEmail(authUser.email)
 
-            if (user != null && authUser.password == user.password && authUser.email == user.email) {
-                val tokenPair = tokenService.generateTokenPair(user.uuid!!)
-                call.respond(
-                    LoginResponse(tokenPair, user)
-                )
-            } else
-                call.respond(HttpStatusCode.Unauthorized)
         }
         post("/register") {
             val newUser = call.receive<User>()
@@ -70,13 +84,14 @@ fun Route.authRouting(userService: UserService, tokenService: TokenService) {
                 onSuccess = { user ->
                     val tokenPair = tokenService.generateTokenPair(user.uuid!!)
                     call.respond(
-                        LoginResponse(tokenPair, user)
+                        SuccessResponse(true, tokenPair)
                     )
                 },
                 onFailure = {
                     call.respond(
+                        HttpStatusCode.BadRequest,
                         FailResponse(
-                            "fail",
+                            false,
                             it.localizedMessage
                         )
                     )

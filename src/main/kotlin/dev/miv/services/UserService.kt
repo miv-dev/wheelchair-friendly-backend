@@ -3,7 +3,6 @@ package dev.miv.services
 import dev.miv.db.entities.UserEntity
 import dev.miv.db.tables.UserTable
 import dev.miv.models.User
-import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.util.*
@@ -25,6 +24,18 @@ class UserService {
 
     suspend fun userById(userId: String): User = newSuspendedTransaction {
         UserEntity[UUID.fromString(userId)].toDomain()
+    }
+
+    suspend fun login(email: String, password: String): User {
+        userByEmail(email)?.let { user: User ->
+
+            if (user.password == password) {
+                return user
+            } else {
+                throw RuntimeException("Credentials aren't valid")
+            }
+
+        } ?: throw RuntimeException("User is not exist")
     }
 
     suspend fun users(): List<User> = newSuspendedTransaction {
@@ -52,8 +63,9 @@ class UserService {
             UserEntity[UUID.fromString(uuid)].delete()
         }
     }
+
     suspend fun update(user: User) = newSuspendedTransaction {
-        if (user.uuid != null){
+        if (user.uuid != null) {
             UserEntity[user.uuid].apply {
                 email = user.email
                 password = user.password

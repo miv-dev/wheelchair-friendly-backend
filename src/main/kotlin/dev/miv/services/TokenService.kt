@@ -5,14 +5,13 @@ import com.auth0.jwt.JWTVerifier
 import com.auth0.jwt.algorithms.Algorithm
 import dev.miv.db.entities.TokenEntity
 import dev.miv.db.tables.TokensTable
+import dev.miv.models.RefreshTokenFromDB
 import dev.miv.models.TokenPair
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
 import org.jetbrains.exposed.sql.transactions.transaction
-
 import java.time.Duration
 import java.util.*
-
 
 
 class TokenService(
@@ -57,12 +56,29 @@ class TokenService(
         TokenPair(accessToken, refreshToken)
     }
 
+    suspend fun isValidRT(refreshToken: String): RefreshTokenFromDB? = newSuspendedTransaction {
+        val token = find(refreshToken)
+        val currentTime = System.currentTimeMillis()
 
-    suspend fun updateByRefreshToken(oldRT: String, newRT: String, currentTime: Long) = newSuspendedTransaction {
-        TokenEntity.find { TokensTable.refreshToken eq oldRT }.first().apply {
-            this.expiresAt = currentTime.withOffset(Duration.ofDays(refreshLifetime))
-            this.refreshToken = newRT
-        }
+        if (token != null && token.expiresAt > currentTime)
+            token
+        else
+            null
+    }
+
+    suspend fun updateByRefreshToken(oldRT: String) = newSuspendedTransaction {
+        val token = find(oldRT)
+        val currentTime = System.currentTimeMillis()
+        if (token != null && token.expiresAt > currentTime) {
+            val newRT = generateTokenPair(token.uuid, isUpdate = true)
+            TokenEntity.find { TokensTable.refreshToken eq oldRT }.first().apply {
+                this.expiresAt = currentTime.withOffset(Duration.ofDays(refreshLifetime))
+                this.refreshToken = newRT.refreshToken
+            }
+            newRT
+        } else
+            throw RuntimeException("Token is expired")
     }
 }
+
 fun Long.withOffset(offset: Duration) = this + offset.toMillis()
