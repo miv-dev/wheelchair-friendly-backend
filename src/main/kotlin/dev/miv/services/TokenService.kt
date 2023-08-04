@@ -26,7 +26,8 @@ class TokenService(
         }
     }
 
-    fun makeJWTVerifier(): JWTVerifier = JWT.require(algorithm)
+    fun makeJWTVerifier(): JWTVerifier = JWT
+        .require(algorithm)
         .withIssuer(issuer)
         .build()
 

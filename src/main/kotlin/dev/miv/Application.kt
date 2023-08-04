@@ -7,11 +7,13 @@ import dev.miv.routing.authRouting
 import dev.miv.routing.mainRouting
 import dev.miv.services.TokenService
 import dev.miv.services.UserService
+import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
 import io.ktor.server.plugins.contentnegotiation.*
+import io.ktor.server.response.*
 import io.ktor.server.routing.*
 
 fun main(args: Array<String>): Unit =
@@ -53,8 +55,7 @@ fun Application.authenticationPlugin(routing: Route.(tokenService: TokenService)
                 tokenService.makeJWTVerifier()
             }
             challenge { defaultScheme, realm ->
-                println(defaultScheme)
-                println(realm)
+                call.respond(HttpStatusCode.Unauthorized, "Token is not valid or has expired")
             }
             validate { token ->
                 if (token.payload.expiresAt.time > System.currentTimeMillis())

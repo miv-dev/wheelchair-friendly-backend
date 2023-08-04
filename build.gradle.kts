@@ -27,6 +27,8 @@ repositories {
 dependencies {
 
     implementation("com.google.firebase:firebase-admin:7.1.0")
+    implementation("io.ktor:ktor-server-swagger:$ktor_version")
+
 
     implementation("org.postgresql:postgresql:$postgres_version")
     implementation("org.jetbrains.exposed:exposed-core:$exposed_version")

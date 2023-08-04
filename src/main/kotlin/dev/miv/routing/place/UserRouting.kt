@@ -14,12 +14,12 @@ fun Route.user(userService: UserService) {
             get("/current") {
                 val principal = call.principal<JWTPrincipal>()
                 if (principal != null){
-                    val userId = principal!!.payload.getClaim("userId").asString()
+                    val userId = principal.payload.getClaim("userId").asString()
                     userService.userById(userId).let {
                         call.respond(it)
                     }
                 }else {
-                    call.respond(HttpStatusCode.Unauthorized,"User is null")
+                    call.respond(HttpStatusCode.BadRequest,"User is null")
                 }
             }
 
